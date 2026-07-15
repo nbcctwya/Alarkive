@@ -1,0 +1,11 @@
+node_modules/
+.next/
+out/
+.DS_Store
+*:Zone.Identifier
+*.log
+*.tsbuildinfo
+data/*.db
+data/*.db-*
+.env*
+!.env.example
