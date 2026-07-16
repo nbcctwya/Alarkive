@@ -4,6 +4,13 @@ function looksLikeLatex(value: string): boolean {
   return latexSignal.test(value);
 }
 
+function normalizeCopiedFormula(value: string): string {
+  // Copying a rendered equation through an HTML-to-Markdown converter can
+  // expand a single relation sign into a Setext-like underline. Inside an
+  // already identified formula block, that line represents one equality.
+  return value.replace(/^[ \t]*={2,}[ \t]*$/gm, "=");
+}
+
 function normalizeProseMath(source: string): string {
   const protectedValues: string[] = [];
   const protect = (value: string) => {
@@ -37,7 +44,9 @@ function normalizeProseMath(source: string): string {
     /(^|\n)[ \t]*\[[ \t]*\n([\s\S]*?)\n[ \t]*\][ \t]*(?=\n|$)/g,
     (match, prefix: string, formula: string) =>
       looksLikeLatex(formula)
-        ? `${prefix}${protect(`$$\n${formula.trim()}\n$$`)}`
+        ? `${prefix}${protect(
+            `$$\n${normalizeCopiedFormula(formula).trim()}\n$$`,
+          )}`
         : match,
   );
 

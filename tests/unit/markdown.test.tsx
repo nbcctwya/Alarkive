@@ -70,6 +70,14 @@ x_{u,t}\\in\\mathbb{R}^{F}
 L=\\sum_{u\\in S}(r_u-\\hat r_u)^2
 ]
 
+[
+\\lambda_{u,t}
+=============
+
+\\operatorname{softmax}
+\\left(z_{u,t}^{\\top}W_\\lambda z_{u,T}\\right)
+]
+
 \\[
 X\\overset{\\text{Gate}}{\\longrightarrow}H
 \\]`}
@@ -78,6 +86,7 @@ X\\overset{\\text{Gate}}{\\longrightarrow}H
 
     expect(html.match(/class="katex/g)?.length).toBeGreaterThanOrEqual(6);
     expect(html).toContain("katex-display");
+    expect(html).not.toContain("=============");
     expect(html).not.toContain("katex-error");
   });
 
@@ -85,6 +94,9 @@ X\\overset{\\text{Gate}}{\\longrightarrow}H
     const source = `[
 ordinary notes
 ]
+
+Heading
+${"=".repeat(7)}
 
 [documentation](https://example.com)
 
