@@ -30,8 +30,10 @@ Alarkive 是单用户、轻量级的个人学习文档平台。用户在 GPT、G
 - SQLite 与 Drizzle ORM 驱动的三页面个人工具。
 - Markdown 编辑与渲染，支持 GFM、代码和 KaTeX 公式。
 - 文档、章节、Markdown 与阅读进度真实持久化；阅读显示设置保存在 localStorage。
+- Markdown/ZIP 导入导出、SQLite 备份恢复和本地图片资源。
+- 单实例 Docker 部署、健康检查和轻量管理员访问保护。
 - 页面间使用稳定的文档 ID 路由跳转。
 
 ## 暂不实现
 
-AI API、账号、多用户、社区、Explore、在线 Fork、支付、推荐、协作、云同步、数据库、附件上传、完整移动端、所见即所得编辑和拖拽排序。
+AI API、账号、多用户、社区、Explore、在线 Fork、支付、推荐、协作、云同步、完整移动端、所见即所得编辑和拖拽排序。

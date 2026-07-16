@@ -26,6 +26,8 @@ import {
   markChapterCompletedAction,
   saveReadingProgressAction,
 } from "@/actions/reading-progress";
+import { touchDocumentLastReadAction } from "@/actions/documents";
+import { extractMarkdownHeadings } from "@/lib/markdown";
 import type {
   ChapterReadingState,
   ChapterContent,
@@ -42,11 +44,13 @@ function ReaderHeader({
   document,
   progress,
   onOpenToc,
+  onOpenChapterToc,
   onToggleSettings,
 }: {
   document: DocumentSummary;
   progress: number;
   onOpenToc: () => void;
+  onOpenChapterToc: () => void;
   onToggleSettings: () => void;
 }) {
   return (
@@ -94,6 +98,13 @@ function ReaderHeader({
       >
         <Settings2 size={18} />
       </button>
+      <button
+        className="ui-button icon xl:hidden"
+        onClick={onOpenChapterToc}
+        aria-label="打开本章导航"
+      >
+        <PanelRight size={18} />
+      </button>
     </header>
   );
 }
@@ -126,29 +137,33 @@ function BookTableOfContents({
             className={`flex items-center rounded-lg ${node.id === currentId ? "bg-[var(--accent-soft)] text-[var(--accent-strong)]" : "hover:bg-[var(--surface-muted)]"}`}
             style={{ paddingLeft: `${depth * 10}px` }}
           >
-            <button
-              className="grid size-8 shrink-0 place-items-center"
-              onClick={() => {
-                if (!hasChildren) return;
-                setExpanded((value) => {
-                  const next = new Set(value);
-                  if (next.has(node.id)) next.delete(node.id);
-                  else next.add(node.id);
-                  return next;
-                });
-              }}
-              aria-label={hasChildren ? "展开或收起" : undefined}
-            >
-              {hasChildren ? (
-                expanded.has(node.id) ? (
+            {hasChildren ? (
+              <button
+                className="grid size-8 shrink-0 place-items-center"
+                onClick={() => {
+                  setExpanded((value) => {
+                    const next = new Set(value);
+                    if (next.has(node.id)) next.delete(node.id);
+                    else next.add(node.id);
+                    return next;
+                  });
+                }}
+                aria-label={expanded.has(node.id) ? "收起章节" : "展开章节"}
+              >
+                {expanded.has(node.id) ? (
                   <ChevronDown size={14} />
                 ) : (
                   <ChevronRight size={14} />
-                )
-              ) : (
+                )}
+              </button>
+            ) : (
+              <span
+                className="grid size-8 shrink-0 place-items-center"
+                aria-hidden="true"
+              >
                 <span className="size-1 rounded-full bg-current opacity-40" />
-              )}
-            </button>
+              </span>
+            )}
             <button
               className="min-w-0 flex-1 truncate py-2 pr-2 text-left text-sm"
               onClick={() => {
@@ -187,7 +202,7 @@ function BookTableOfContents({
       </nav>
       <div className="border-t border-[var(--border)] p-4">
         <p className="muted text-xs leading-5">
-          阅读位置会在接入本地数据库后自动保存。
+          阅读位置会自动保存到本地数据库。
         </p>
       </div>
     </aside>
@@ -265,6 +280,7 @@ function ReaderSettings({
           className={`ui-button icon min-h-8 ${leftVisible ? "text-[var(--accent)]" : "muted"}`}
           onClick={onLeftVisible}
           title="切换全书目录"
+          aria-label={leftVisible ? "隐藏全书目录" : "显示全书目录"}
         >
           <PanelLeft size={16} />
         </button>
@@ -272,6 +288,7 @@ function ReaderSettings({
           className={`ui-button icon min-h-8 ${rightVisible ? "text-[var(--accent)]" : "muted"}`}
           onClick={onRightVisible}
           title="切换本章导航"
+          aria-label={rightVisible ? "隐藏本章导航" : "显示本章导航"}
         >
           <PanelRight size={16} />
         </button>
@@ -280,25 +297,18 @@ function ReaderSettings({
   );
 }
 
-function extractHeadings(content: string) {
-  return content.split("\n").flatMap((line) => {
-    const match = /^(#{2,3})\s+(.+)$/.exec(line);
-    if (!match) return [];
-    return [
-      {
-        level: match[1].length,
-        title: match[2],
-        id: match[2]
-          .trim()
-          .toLowerCase()
-          .replace(/[^\p{L}\p{N}]+/gu, "-"),
-      },
-    ];
-  });
-}
-
-function ChapterTableOfContents({ content }: { content: string }) {
-  const headings = extractHeadings(content);
+function ChapterTableOfContents({
+  content,
+  activeId,
+  onNavigate,
+}: {
+  content: string;
+  activeId: string;
+  onNavigate?: () => void;
+}) {
+  const headings = extractMarkdownHeadings(content).filter(
+    (heading) => heading.level >= 2,
+  );
   return (
     <section className="surface p-4">
       <p className="muted text-xs font-semibold tracking-widest uppercase">
@@ -311,11 +321,15 @@ function ChapterTableOfContents({ content }: { content: string }) {
             {headings.map((heading) => (
               <li key={heading.id}>
                 <a
-                  className="muted block rounded-md px-2 py-1.5 text-sm hover:bg-[var(--surface-muted)] hover:text-[var(--text)]"
+                  className={`block rounded-md px-2 py-1.5 text-sm transition hover:bg-[var(--surface-muted)] hover:text-[var(--text)] ${heading.id === activeId ? "bg-[var(--accent-soft)] font-medium text-[var(--accent-strong)]" : "muted"}`}
                   style={{
                     paddingLeft: heading.level === 3 ? "1.25rem" : ".5rem",
                   }}
                   href={`#${heading.id}`}
+                  aria-current={
+                    heading.id === activeId ? "location" : undefined
+                  }
+                  onClick={onNavigate}
                 >
                   {heading.title}
                 </a>
@@ -418,10 +432,12 @@ export function ReaderShell({
   const [leftVisible, setLeftVisible] = useState(true);
   const [rightVisible, setRightVisible] = useState(true);
   const [mobileToc, setMobileToc] = useState(false);
+  const [mobileChapterToc, setMobileChapterToc] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(true);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [operationError, setOperationError] = useState("");
   const [savingCompletion, setSavingCompletion] = useState(false);
+  const [activeHeadingId, setActiveHeadingId] = useState("");
   const [chapterStates, setChapterStates] = useState<
     Record<string, ChapterReadingState>
   >(() =>
@@ -431,6 +447,9 @@ export function ReaderShell({
   );
   const chapterStatesRef = useRef(chapterStates);
   const currentScrollRef = useRef(0);
+  const touchedDocumentRef = useRef(false);
+  const selectionRevisionRef = useRef(0);
+  const skipNextCleanupFlushRef = useRef(false);
   const currentIndex = chapters.findIndex(
     (chapter) => chapter.id === chapterId,
   );
@@ -467,10 +486,21 @@ export function ReaderShell({
   );
   const select = async (id: string) => {
     if (!id || id === chapterId) return;
-    await persistPosition(chapterId, currentScrollRef.current);
-    await persistPosition(id, chapterStates[id]?.scrollPosition ?? 0);
+    const selectionRevision = selectionRevisionRef.current + 1;
+    selectionRevisionRef.current = selectionRevision;
+    const currentSaved = await persistPosition(
+      chapterId,
+      currentScrollRef.current,
+    );
+    if (selectionRevision !== selectionRevisionRef.current) return;
+    const nextSaved = await persistPosition(
+      id,
+      chapterStates[id]?.scrollPosition ?? 0,
+    );
+    if (selectionRevision !== selectionRevisionRef.current) return;
+    skipNextCleanupFlushRef.current = true;
     setChapterId(id);
-    setOperationError("");
+    if (currentSaved && nextSaved) setOperationError("");
   };
   const previous = () =>
     currentIndex > 0 && void select(chapters[currentIndex - 1].id);
@@ -478,6 +508,14 @@ export function ReaderShell({
     currentIndex >= 0 &&
     currentIndex < chapters.length - 1 &&
     void select(chapters[currentIndex + 1].id);
+
+  useEffect(() => {
+    if (touchedDocumentRef.current) return;
+    touchedDocumentRef.current = true;
+    void touchDocumentLastReadAction(document.id).then((result) => {
+      if (!result.ok) setOperationError(result.error);
+    });
+  }, [document.id]);
 
   useEffect(() => {
     try {
@@ -525,6 +563,31 @@ export function ReaderShell({
   }, [chapterId]);
 
   useEffect(() => {
+    const headings = Array.from(
+      window.document.querySelectorAll<HTMLElement>(
+        ".reader-article .markdown-body h1[id], .reader-article .markdown-body h2[id], .reader-article .markdown-body h3[id], .reader-article .markdown-body h4[id], .reader-article .markdown-body h5[id], .reader-article .markdown-body h6[id]",
+      ),
+    );
+    setActiveHeadingId(headings[0]?.id ?? "");
+    if (!headings.length) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort(
+            (a, b) =>
+              Math.abs(a.boundingClientRect.top) -
+              Math.abs(b.boundingClientRect.top),
+          )[0];
+        if (visible?.target.id) setActiveHeadingId(visible.target.id);
+      },
+      { rootMargin: "-18% 0px -68% 0px", threshold: [0, 1] },
+    );
+    headings.forEach((heading) => observer.observe(heading));
+    return () => observer.disconnect();
+  }, [chapterId, content]);
+
+  useEffect(() => {
     if (!chapterId) return;
     let timer = 0;
     const handleScroll = () => {
@@ -535,11 +598,37 @@ export function ReaderShell({
       }, 900);
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
+    const flushOnLeave = () => {
+      const payload = JSON.stringify({
+        documentId: document.id,
+        chapterId,
+        scrollPosition: currentScrollRef.current,
+      });
+      const body = new Blob([payload], { type: "application/json" });
+      if (!navigator.sendBeacon("/api/reading-progress", body)) {
+        void fetch("/api/reading-progress", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: payload,
+          keepalive: true,
+        });
+      }
+    };
+    const flushWhenHidden = () => {
+      if (window.document.visibilityState === "hidden") flushOnLeave();
+    };
+    window.addEventListener("pagehide", flushOnLeave);
+    window.document.addEventListener("visibilitychange", flushWhenHidden);
     return () => {
       window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("pagehide", flushOnLeave);
+      window.document.removeEventListener("visibilitychange", flushWhenHidden);
       window.clearTimeout(timer);
+      if (skipNextCleanupFlushRef.current)
+        skipNextCleanupFlushRef.current = false;
+      else flushOnLeave();
     };
-  }, [chapterId, persistPosition]);
+  }, [chapterId, document.id, persistPosition]);
 
   const toggleCompleted = async () => {
     if (!chapterId) return;
@@ -570,6 +659,7 @@ export function ReaderShell({
         document={document}
         progress={progress}
         onOpenToc={() => setMobileToc(true)}
+        onOpenChapterToc={() => setMobileChapterToc(true)}
         onToggleSettings={() => setSettingsVisible((value) => !value)}
       />
       {settingsVisible && (
@@ -589,7 +679,7 @@ export function ReaderShell({
       <div
         className={`mx-auto grid max-w-[1680px] items-start ${leftVisible ? "lg:grid-cols-[18rem_minmax(0,1fr)]" : "lg:grid-cols-[minmax(0,1fr)]"} ${leftVisible && rightVisible ? "xl:grid-cols-[18rem_minmax(0,1fr)_17rem]" : rightVisible ? "xl:grid-cols-[minmax(0,1fr)_17rem]" : ""}`}
       >
-        {leftVisible && (
+        {(leftVisible || mobileToc) && (
           <BookTableOfContents
             tree={tree}
             currentId={chapterId}
@@ -618,7 +708,7 @@ export function ReaderShell({
             </div>
           )}
           <article
-            className={`surface mx-auto px-5 py-7 sm:px-8 md:px-12 md:py-10 ${widthClasses[width]}`}
+            className={`reader-article surface mx-auto px-5 py-7 sm:px-8 md:px-12 md:py-10 ${widthClasses[width]}`}
           >
             {chapters.length ? (
               <MarkdownRenderer
@@ -673,7 +763,10 @@ export function ReaderShell({
         </main>
         {rightVisible && chapters.length > 0 && (
           <aside className="sticky top-29 hidden h-[calc(100vh-8rem)] space-y-4 overflow-y-auto px-3 py-5 xl:block">
-            <ChapterTableOfContents content={content} />
+            <ChapterTableOfContents
+              content={content}
+              activeId={activeHeadingId}
+            />
             <ReadingProgressCard
               progress={progress}
               currentIndex={currentIndex}
@@ -686,6 +779,46 @@ export function ReaderShell({
           </aside>
         )}
       </div>
+      {mobileChapterToc && chapters.length > 0 && (
+        <>
+          <button
+            className="fixed inset-0 z-30 bg-black/20 xl:hidden"
+            onClick={() => setMobileChapterToc(false)}
+            aria-label="关闭本章导航遮罩"
+          />
+          <aside className="fixed inset-y-0 right-0 z-40 w-76 overflow-y-auto border-l border-[var(--border)] bg-[var(--background)] p-4 xl:hidden">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-semibold">本章阅读</h2>
+              <button
+                className="ui-button icon ghost"
+                onClick={() => setMobileChapterToc(false)}
+                aria-label="关闭本章导航"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <ChapterTableOfContents
+                content={content}
+                activeId={activeHeadingId}
+                onNavigate={() => setMobileChapterToc(false)}
+              />
+              <ReadingProgressCard
+                progress={progress}
+                currentIndex={currentIndex}
+                total={chapters.length}
+                onNext={() => {
+                  next();
+                  setMobileChapterToc(false);
+                }}
+                completed={chapterStates[chapterId]?.completed ?? false}
+                savingCompletion={savingCompletion}
+                onToggleCompleted={() => void toggleCompleted()}
+              />
+            </div>
+          </aside>
+        </>
+      )}
     </div>
   );
 }

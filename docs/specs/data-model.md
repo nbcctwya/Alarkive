@@ -2,7 +2,7 @@
 
 ## DocumentSummary
 
-Library 的轻量列表投影：`id`、`title`、`description`、`tags`、`chapterCount`、`progress`、`updatedAt`、`lastReadAt`。日期存储为 ISO 8601，进度为 0–100 的整数。
+Library 的轻量列表投影：`id`、`title`、`description`、`tags`、`chapterTitles`、`chapterCount`、`progress`、`updatedAt`、`lastReadAt`。日期存储为 ISO 8601，进度为 0–100 的整数；`chapterTitles` 仅用于小规模前端搜索。
 
 ## ChapterNode
 
@@ -27,10 +27,10 @@ documents        1 ── * document_tags
 ```
 
 - ID 作为路由与未来数据库主键，使用稳定字符串。
-- 删除章节时未来需要级联处理内容和阅读进度。
-- `chapterCount` 与 `progress` 是便于列表读取的派生/缓存字段，持久层应在事务内更新。
+- 删除父章节会由外键级联删除后代和对应阅读进度，再规范剩余兄弟节点排序。
+- `chapterCount` 与 `progress` 是查询时从章节和阅读进度聚合出的派生字段，不单独持久化。
 - `scratchpad` 与 `content` 分离，避免收集材料污染正式正文。
 
 ## SQLite V0.1 实现
 
-建立 `documents`、`chapters`、`reading_progress` 和 `document_tags` 表；正文与素材直接保存在 `chapters`。`reading_progress` 以 `documentId + chapterId` 为复合主键，完成状态和滚动位置保存在同一行。Repository 将数据库行聚合为页面既有类型，页面不直接查询 Drizzle。
+建立 `documents`、`chapters`、`reading_progress` 和 `document_tags` 表；正文与素材直接保存在 `chapters`。`reading_progress` 以 `documentId + chapterId` 为复合主键，完成状态和滚动位置保存在同一行。同一文档、同一父节点下的 `orderIndex` 有数据库唯一约束。Repository 将数据库行聚合为页面既有类型，页面不直接查询 Drizzle。图片按文档写入独立资源目录，不作为 BLOB 存入 SQLite。

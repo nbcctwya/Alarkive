@@ -3,30 +3,35 @@
 import {
   BookOpen,
   Clock3,
+  Download,
   FilePlus2,
   Files,
   Library,
   Menu,
+  Pencil,
   Search,
-  Settings,
   Tags,
   Trash2,
+  Upload,
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import {
   createDocumentAction,
   deleteDocumentAction,
+  updateDocumentAction,
 } from "@/actions/documents";
+import { importFileAction, inspectImportAction } from "@/actions/import-export";
+import type { ImportInspection } from "@/services/portability";
 import type { DocumentSummary } from "@/types";
+import { useModalFocus } from "@/lib/use-modal-focus";
 
 const navItems = [
-  { label: "Library", icon: Library, active: true },
-  { label: "全部文档", icon: Files },
-  { label: "最近阅读", icon: Clock3 },
-  { label: "标签", icon: Tags },
-  { label: "设置", icon: Settings },
+  { label: "Library", icon: Library, href: "#library-top", active: true },
+  { label: "全部文档", icon: Files, href: "#all-documents" },
+  { label: "最近阅读", icon: Clock3, href: "#recent-documents" },
+  { label: "标签", icon: Tags, href: "#library-tag-filter" },
 ];
 
 function AppSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -47,15 +52,16 @@ function AppSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         </button>
       </div>
       <nav className="space-y-1" aria-label="应用导航">
-        {navItems.map(({ label, icon: Icon, active }) => (
-          <button
+        {navItems.map(({ label, icon: Icon, href, active }) => (
+          <a
             key={label}
+            href={href}
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${active ? "bg-[var(--accent-soft)] text-[var(--accent-strong)]" : "muted hover:bg-[var(--surface-muted)] hover:text-[var(--text)]"}`}
-            type="button"
+            onClick={onClose}
           >
             <Icon size={18} />
             {label}
-          </button>
+          </a>
         ))}
       </nav>
       <div className="absolute right-5 bottom-6 left-5 rounded-xl bg-[var(--surface-muted)] p-4 text-xs leading-5 text-[var(--text-muted)]">
@@ -70,10 +76,12 @@ function DocumentCard({
   document,
   featured = false,
   onDelete,
+  onEdit,
 }: {
   document: DocumentSummary;
   featured?: boolean;
   onDelete: (document: DocumentSummary) => void;
+  onEdit: (document: DocumentSummary) => void;
 }) {
   return (
     <article
@@ -135,6 +143,22 @@ function DocumentCard({
           编辑
         </Link>
         <button
+          className="ui-button icon"
+          onClick={() => onEdit(document)}
+          aria-label={`修改${document.title}信息`}
+          title="修改文档信息"
+        >
+          <Pencil size={16} />
+        </button>
+        <a
+          className="ui-button icon"
+          href={`/api/documents/${document.id}/export`}
+          aria-label={`导出${document.title}`}
+          title="导出文档"
+        >
+          <Download size={16} />
+        </a>
+        <button
           className="ui-button icon text-[var(--text-muted)] hover:text-[var(--danger)]"
           onClick={() => onDelete(document)}
           aria-label={`删除${document.title}`}
@@ -158,6 +182,7 @@ function CreateDocumentDialog({
   const [description, setDescription] = useState("");
   const [error, setError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const dialogRef = useModalFocus<HTMLDivElement>(onClose);
   return (
     <div
       className="fixed inset-0 z-50 grid place-items-center bg-slate-950/35 p-4"
@@ -165,6 +190,8 @@ function CreateDocumentDialog({
       onMouseDown={onClose}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         className="surface w-full max-w-md p-6 shadow-2xl"
         role="dialog"
         aria-modal="true"
@@ -244,6 +271,265 @@ function CreateDocumentDialog({
   );
 }
 
+function ImportDocumentDialog({
+  onClose,
+  onImported,
+}: {
+  onClose: () => void;
+  onImported: (document: DocumentSummary) => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [inspection, setInspection] = useState<ImportInspection | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const dialogRef = useModalFocus<HTMLElement>(onClose);
+
+  const inspect = async () => {
+    if (!file) {
+      setError("请选择 Markdown 或 Alarkive ZIP 文件");
+      return;
+    }
+    setBusy(true);
+    const formData = new FormData();
+    formData.set("file", file);
+    const result = await inspectImportAction(formData);
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      setInspection(null);
+      return;
+    }
+    setError("");
+    setInspection(result.data);
+  };
+
+  const commit = async () => {
+    if (!file || !inspection) return;
+    setBusy(true);
+    const formData = new FormData();
+    formData.set("file", file);
+    const result = await importFileAction(formData);
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    onImported(result.data);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4"
+      role="presentation"
+    >
+      <section
+        ref={dialogRef}
+        tabIndex={-1}
+        className="surface w-full max-w-lg p-6 shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="import-title"
+      >
+        <div className="mb-5 flex items-start justify-between">
+          <div>
+            <h2 id="import-title" className="text-lg font-semibold">
+              导入学习文档
+            </h2>
+            <p className="muted mt-1 text-sm">
+              支持单个 Markdown 或 Alarkive 导出的 ZIP。
+            </p>
+          </div>
+          <button
+            className="ui-button icon ghost"
+            onClick={onClose}
+            aria-label="关闭导入"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <label className="block text-sm font-medium">
+          选择文件
+          <input
+            autoFocus
+            className="mt-2 block w-full rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-3 text-sm"
+            type="file"
+            accept=".md,.zip,text/markdown,application/zip"
+            onChange={(event) => {
+              setFile(event.target.files?.[0] ?? null);
+              setInspection(null);
+              setError("");
+            }}
+          />
+        </label>
+        {error && (
+          <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </p>
+        )}
+        {inspection && (
+          <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-4">
+            <p className="text-xs font-semibold tracking-wider text-[var(--accent)] uppercase">
+              导入检查通过
+            </p>
+            <h3 className="mt-1 font-semibold">{inspection.title}</h3>
+            <p className="muted mt-1 text-sm">
+              {inspection.chapterCount} 个章节 ·{" "}
+              {inspection.kind === "markdown" ? "Markdown" : "Alarkive ZIP"}
+            </p>
+            {inspection.tags.length > 0 && (
+              <p className="muted mt-2 text-xs">
+                标签：{inspection.tags.join("、")}
+              </p>
+            )}
+            <ul className="mt-3 space-y-1 text-xs text-[var(--text-muted)]">
+              {inspection.warnings.map((warning) => (
+                <li key={warning}>• {warning}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <div className="mt-6 flex justify-end gap-2">
+          <button className="ui-button" onClick={onClose}>
+            取消
+          </button>
+          {inspection ? (
+            <button
+              className="ui-button primary"
+              disabled={busy}
+              onClick={() => void commit()}
+            >
+              {busy ? "导入中…" : "确认导入"}
+            </button>
+          ) : (
+            <button
+              className="ui-button primary"
+              disabled={busy || !file}
+              onClick={() => void inspect()}
+            >
+              {busy ? "检查中…" : "检查文件"}
+            </button>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function EditDocumentDialog({
+  document,
+  onClose,
+  onUpdated,
+}: {
+  document: DocumentSummary;
+  onClose: () => void;
+  onUpdated: (document: DocumentSummary) => void;
+}) {
+  const [title, setTitle] = useState(document.title);
+  const [description, setDescription] = useState(document.description);
+  const [tags, setTags] = useState(document.tags.join("，"));
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const dialogRef = useModalFocus<HTMLElement>(onClose);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!title.trim()) {
+      setError("文档标题不能为空");
+      return;
+    }
+    setBusy(true);
+    const result = await updateDocumentAction(document.id, {
+      title,
+      description,
+      tags: tags
+        .split(/[,，]/)
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    onUpdated(result.data);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4">
+      <section
+        ref={dialogRef}
+        tabIndex={-1}
+        className="surface w-full max-w-md p-6 shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-document-title"
+      >
+        <div className="mb-5 flex items-start justify-between">
+          <div>
+            <h2 id="edit-document-title" className="text-lg font-semibold">
+              修改文档信息
+            </h2>
+            <p className="muted mt-1 text-sm">
+              标题、简介和标签会立即用于 Library 搜索。
+            </p>
+          </div>
+          <button
+            className="ui-button icon ghost"
+            onClick={onClose}
+            aria-label="关闭修改文档"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <form onSubmit={submit} className="space-y-4">
+          <label className="block text-sm font-medium">
+            标题
+            <input
+              autoFocus
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              className="mt-2 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"
+            />
+          </label>
+          <label className="block text-sm font-medium">
+            简介
+            <textarea
+              rows={4}
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              className="mt-2 w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"
+            />
+          </label>
+          <label className="block text-sm font-medium">
+            标签<span className="muted ml-2 text-xs">使用逗号分隔</span>
+            <input
+              value={tags}
+              onChange={(event) => setTags(event.target.value)}
+              placeholder="机器学习，论文"
+              className="mt-2 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5"
+            />
+          </label>
+          {error && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <button type="button" className="ui-button" onClick={onClose}>
+              取消
+            </button>
+            <button type="submit" className="ui-button primary" disabled={busy}>
+              {busy ? "保存中…" : "保存修改"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+type SortOption = "updated" | "lastRead" | "title" | "progress";
+
 export function LibraryClient({
   initialDocuments,
   initialError,
@@ -254,24 +540,44 @@ export function LibraryClient({
   const [items, setItems] = useState(initialDocuments);
   const [query, setQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [editingDocument, setEditingDocument] =
+    useState<DocumentSummary | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedTag, setSelectedTag] = useState("");
+  const [sort, setSort] = useState<SortOption>("updated");
   const [operationError, setOperationError] = useState(initialError ?? "");
   useEffect(() => setItems(initialDocuments), [initialDocuments]);
+  const allTags = useMemo(
+    () => [...new Set(items.flatMap((item) => item.tags))].sort(),
+    [items],
+  );
   const filtered = useMemo(() => {
     const value = query.trim().toLowerCase();
-    return value
-      ? items.filter((item) =>
-          [item.title, item.description, ...item.tags].some((field) =>
-            field.toLowerCase().includes(value),
-          ),
-        )
-      : items;
-  }, [items, query]);
+    const matches = items.filter(
+      (item) =>
+        (!selectedTag || item.tags.includes(selectedTag)) &&
+        (!value ||
+          [
+            item.title,
+            item.description,
+            ...item.tags,
+            ...(item.chapterTitles ?? []),
+          ].some((field) => field.toLowerCase().includes(value))),
+    );
+    return matches.sort((a, b) => {
+      if (sort === "title") return a.title.localeCompare(b.title, "zh-CN");
+      if (sort === "progress") return b.progress - a.progress;
+      if (sort === "lastRead")
+        return (b.lastReadAt ?? "").localeCompare(a.lastReadAt ?? "");
+      return b.updatedAt.localeCompare(a.updatedAt);
+    });
+  }, [items, query, selectedTag, sort]);
   const recent = [...items]
     .filter((item) => item.lastReadAt)
     .sort((a, b) => (b.lastReadAt ?? "").localeCompare(a.lastReadAt ?? ""))
     .slice(0, 2);
-  const emptyLibrary = !query && items.length === 0;
+  const emptyLibrary = !query && !selectedTag && items.length === 0;
   const create = async (title: string, description: string) => {
     const result = await createDocumentAction(title, description);
     if (!result.ok) {
@@ -295,7 +601,7 @@ export function LibraryClient({
   };
 
   return (
-    <div className="flex min-h-screen">
+    <div id="library-top" className="flex min-h-screen">
       <AppSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       {sidebarOpen && (
         <button
@@ -322,7 +628,7 @@ export function LibraryClient({
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="搜索文档、标签或内容…"
+                placeholder="搜索标题、简介、标签或章节…"
                 className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] py-2.5 pr-10 pl-10 outline-none focus:border-[var(--accent)]"
               />
               {query && (
@@ -335,9 +641,16 @@ export function LibraryClient({
                 </button>
               )}
             </div>
-            <button className="ui-button hidden sm:inline-flex">
+            <a
+              className="ui-button hidden sm:inline-flex"
+              href="#recent-documents"
+            >
               <Clock3 size={17} />
               最近阅读
+            </a>
+            <button className="ui-button" onClick={() => setImportOpen(true)}>
+              <Upload size={17} />
+              <span className="hidden sm:inline">导入</span>
             </button>
             <button
               className="ui-button primary"
@@ -370,7 +683,7 @@ export function LibraryClient({
             </p>
           </div>
           {!query && recent.length > 0 && (
-            <section className="mb-10">
+            <section id="recent-documents" className="mb-10 scroll-mt-24">
               <div className="mb-4 flex items-end justify-between">
                 <div>
                   <p className="text-xs font-semibold tracking-widest text-[var(--accent)] uppercase">
@@ -387,22 +700,61 @@ export function LibraryClient({
                     document={item}
                     featured
                     onDelete={remove}
+                    onEdit={setEditingDocument}
                   />
                 ))}
               </div>
             </section>
           )}
-          <section>
-            <div className="mb-4 flex items-end justify-between">
+          <section id="all-documents" className="scroll-mt-24">
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold tracking-widest text-[var(--accent)] uppercase">
                   Your library
                 </p>
                 <h2 className="mt-1 text-xl font-semibold">
-                  {query ? `“${query}”的搜索结果` : "全部文档"}
+                  {query
+                    ? `“${query}”的搜索结果`
+                    : selectedTag
+                      ? `标签：${selectedTag}`
+                      : "全部文档"}
                 </h2>
               </div>
-              <span className="muted text-sm">{filtered.length} 份文档</span>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <label className="sr-only" htmlFor="library-tag-filter">
+                  按标签筛选
+                </label>
+                <select
+                  id="library-tag-filter"
+                  className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+                  value={selectedTag}
+                  onChange={(event) => setSelectedTag(event.target.value)}
+                >
+                  <option value="">全部标签</option>
+                  {allTags.map((tag) => (
+                    <option key={tag} value={tag}>
+                      {tag}
+                    </option>
+                  ))}
+                </select>
+                <label className="sr-only" htmlFor="library-sort">
+                  文档排序
+                </label>
+                <select
+                  id="library-sort"
+                  className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+                  value={sort}
+                  onChange={(event) =>
+                    setSort(event.target.value as SortOption)
+                  }
+                >
+                  <option value="updated">最近修改</option>
+                  <option value="lastRead">最近阅读</option>
+                  <option value="title">标题</option>
+                  <option value="progress">阅读进度</option>
+                </select>
+                <span className="muted text-sm">{filtered.length} 份文档</span>
+              </div>
             </div>
             {filtered.length > 0 ? (
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -411,6 +763,7 @@ export function LibraryClient({
                     key={item.id}
                     document={item}
                     onDelete={remove}
+                    onEdit={setEditingDocument}
                   />
                 ))}
               </div>
@@ -432,9 +785,12 @@ export function LibraryClient({
                     {!emptyLibrary && (
                       <button
                         className="ui-button"
-                        onClick={() => setQuery("")}
+                        onClick={() => {
+                          setQuery("");
+                          setSelectedTag("");
+                        }}
                       >
-                        清除搜索
+                        清除筛选
                       </button>
                     )}
                     <button
@@ -454,6 +810,31 @@ export function LibraryClient({
         <CreateDocumentDialog
           onClose={() => setDialogOpen(false)}
           onCreate={create}
+        />
+      )}
+      {importOpen && (
+        <ImportDocumentDialog
+          onClose={() => setImportOpen(false)}
+          onImported={(document) => {
+            setItems((current) => [document, ...current]);
+            setImportOpen(false);
+            setOperationError("");
+          }}
+        />
+      )}
+      {editingDocument && (
+        <EditDocumentDialog
+          document={editingDocument}
+          onClose={() => setEditingDocument(null)}
+          onUpdated={(document) => {
+            setItems((current) =>
+              current.map((item) =>
+                item.id === document.id ? document : item,
+              ),
+            );
+            setEditingDocument(null);
+            setOperationError("");
+          }}
         />
       )}
     </div>

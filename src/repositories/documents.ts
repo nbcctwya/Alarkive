@@ -8,11 +8,23 @@ import {
   readingProgress,
 } from "@/db/schema";
 import type { DocumentSummary } from "@/types";
+import { stageDocumentAssetsForDeletion } from "@/services/assets";
+
+function normalizeTags(tags: string[] | undefined): string[] {
+  return [...new Set(tags?.map((tag) => tag.trim()).filter(Boolean) ?? [])];
+}
+
+export interface UpdateDocumentInput {
+  title?: string;
+  description?: string;
+  lastReadAt?: string | null;
+  tags?: string[];
+}
 
 function toSummary(
   document: typeof documents.$inferSelect,
   tags: string[],
-  chapterCount: number,
+  chapterTitles: string[],
   completedCount: number,
 ): DocumentSummary {
   return {
@@ -20,11 +32,12 @@ function toSummary(
     title: document.title,
     description: document.description,
     tags,
-    chapterCount,
+    chapterTitles,
+    chapterCount: chapterTitles.length,
     progress:
-      chapterCount === 0
+      chapterTitles.length === 0
         ? 0
-        : Math.round((completedCount / chapterCount) * 100),
+        : Math.round((completedCount / chapterTitles.length) * 100),
     updatedAt: document.updatedAt,
     lastReadAt: document.lastReadAt,
   };
@@ -39,7 +52,11 @@ export function listDocuments(): DocumentSummary[] {
     .all();
   const tagRows = db.select().from(documentTags).all();
   const chapterRows = db
-    .select({ id: chapters.id, documentId: chapters.documentId })
+    .select({
+      id: chapters.id,
+      documentId: chapters.documentId,
+      title: chapters.title,
+    })
     .from(chapters)
     .all();
   const completedRows = db
@@ -57,8 +74,9 @@ export function listDocuments(): DocumentSummary[] {
       tagRows
         .filter((tag) => tag.documentId === document.id)
         .map((tag) => tag.tag),
-      chapterRows.filter((chapter) => chapter.documentId === document.id)
-        .length,
+      chapterRows
+        .filter((chapter) => chapter.documentId === document.id)
+        .map((chapter) => chapter.title),
       completedRows.filter((row) => row.documentId === document.id).length,
     ),
   );
@@ -88,9 +106,7 @@ export function createDocument(input: {
         updatedAt: now,
       })
       .run();
-    const tags = [
-      ...new Set(input.tags?.map((tag) => tag.trim()).filter(Boolean)),
-    ];
+    const tags = normalizeTags(input.tags);
     if (tags.length) {
       tx.insert(documentTags)
         .values(tags.map((tag) => ({ documentId: id, tag })))
@@ -105,8 +121,14 @@ export function createDocument(input: {
 
 export function updateDocument(
   id: string,
-  input: Partial<Pick<DocumentSummary, "title" | "description" | "lastReadAt">>,
+  input: UpdateDocumentInput,
 ): DocumentSummary | null {
+  const existing = db
+    .select({ id: documents.id })
+    .from(documents)
+    .where(eq(documents.id, id))
+    .get();
+  if (!existing) return null;
   const values: Partial<typeof documents.$inferInsert> = {
     updatedAt: new Date().toISOString(),
   };
@@ -118,16 +140,43 @@ export function updateDocument(
   if (input.description !== undefined)
     values.description = input.description.trim();
   if (input.lastReadAt !== undefined) values.lastReadAt = input.lastReadAt;
-  const result = db
-    .update(documents)
-    .set(values)
-    .where(eq(documents.id, id))
-    .run();
-  return result.changes ? getDocumentById(id) : null;
+  db.transaction((tx) => {
+    tx.update(documents).set(values).where(eq(documents.id, id)).run();
+    if (input.tags !== undefined) {
+      tx.delete(documentTags).where(eq(documentTags.documentId, id)).run();
+      const tags = normalizeTags(input.tags);
+      if (tags.length) {
+        tx.insert(documentTags)
+          .values(tags.map((tag) => ({ documentId: id, tag })))
+          .run();
+      }
+    }
+  });
+  return getDocumentById(id);
 }
 
 export function deleteDocument(id: string): boolean {
-  return db.delete(documents).where(eq(documents.id, id)).run().changes > 0;
+  const stagedAssets = stageDocumentAssetsForDeletion(id);
+  try {
+    const deleted =
+      db.delete(documents).where(eq(documents.id, id)).run().changes > 0;
+    if (!deleted) {
+      stagedAssets.rollback();
+      return false;
+    }
+    try {
+      stagedAssets.commit();
+    } catch (error) {
+      console.error(
+        "[alarkive] failed to remove staged document assets",
+        error,
+      );
+    }
+    return true;
+  } catch (error) {
+    stagedAssets.rollback();
+    throw error;
+  }
 }
 
 export function touchDocumentLastRead(id: string): void {

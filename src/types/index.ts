@@ -3,6 +3,7 @@ export interface DocumentSummary {
   title: string;
   description: string;
   tags: string[];
+  chapterTitles?: string[];
   chapterCount: number;
   progress: number;
   updatedAt: string;

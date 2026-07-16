@@ -6,19 +6,20 @@
 
 ## 页面区域与组件层级
 
-- `AppSidebar`：品牌、Library、全部文档、最近阅读、标签、设置入口。
-- `LibraryHeader`：移动端导航、全局搜索、最近阅读、新建文档。
+- `AppSidebar`：品牌、Library、全部文档、最近阅读和标签锚点。
+- `LibraryHeader`：移动端导航、全局搜索、最近阅读、导入和新建文档。
 - `RecentDocumentsSection`：最近阅读的两份文档，强化继续学习入口。
 - `AllDocumentsSection`：全部文档响应式卡片网格。
   - `DocumentCard`：标题、简介、标签、章节数、更新时间、进度、阅读和编辑入口。
-- `CreateDocumentDialog`：标题和简介表单。
+- `CreateDocumentDialog` / `EditDocumentDialog`：标题、简介和标签表单。
+- `ImportDocumentDialog`：先检查 Markdown/ZIP，再确认导入。
 
 ## 用户交互
 
-- 搜索对标题、简介和标签进行不区分大小写的前端过滤。
+- 搜索对标题、简介、标签和章节标题进行不区分大小写的前端过滤，并支持标签筛选及修改时间、阅读时间、标题、进度排序。
 - 点击卡片主体进入 `/documents/{id}/read`；编辑按钮进入 `/documents/{id}/edit`。
 - 新建弹窗校验标题，通过 Server Action 写入 SQLite，成功后立即加入列表。
-- 删除文档需要确认，并级联删除其章节、标签和阅读进度。
+- 修改文档信息和删除文档均真实持久化；删除前二次确认，并级联删除章节、标签、阅读进度及本地图片目录。
 - 侧栏在窄屏折叠为顶部菜单按钮。
 
 ## 页面状态
@@ -38,4 +39,4 @@
 
 ## 暂不实现
 
-标签管理、设置页、批量操作、云端搜索和最近阅读筛选页。
+独立标签管理页、设置页、批量操作、全文搜索引擎和独立最近阅读页面。

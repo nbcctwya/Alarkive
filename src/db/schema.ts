@@ -32,6 +32,10 @@ export const chapters = sqliteTable(
     parentId: text("parent_id").references((): AnySQLiteColumn => chapters.id, {
       onDelete: "cascade",
     }),
+    parentKey: text("parent_key").generatedAlwaysAs(
+      sql`coalesce(parent_id, '')`,
+      { mode: "virtual" },
+    ),
     title: text("title").notNull(),
     content: text("content").notNull().default(""),
     scratchpad: text("scratchpad").notNull().default(""),
@@ -46,7 +50,7 @@ export const chapters = sqliteTable(
   (table) => [
     uniqueIndex("chapters_sibling_order_idx").on(
       table.documentId,
-      table.parentId,
+      table.parentKey,
       table.orderIndex,
     ),
   ],

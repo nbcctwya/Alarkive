@@ -1,11 +1,9 @@
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import { dirname, resolve } from "node:path";
+import { dirname } from "node:path";
 import { mkdirSync } from "node:fs";
 import * as schema from "./schema";
-
-const databaseUrl = process.env.DATABASE_URL ?? "./data/alarkive.db";
-const databasePath = resolve(process.cwd(), databaseUrl);
+import { databasePath } from "@/config/paths";
 
 mkdirSync(dirname(databasePath), { recursive: true });
 

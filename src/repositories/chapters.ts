@@ -88,24 +88,40 @@ export function createChapter(input: {
     if (!parent || parent.documentId !== input.documentId)
       throw new Error("父章节不存在");
   }
-  const siblings = db
-    .select({ orderIndex: chapters.orderIndex })
-    .from(chapters)
-    .where(
-      input.parentId
-        ? and(
-            eq(chapters.documentId, input.documentId),
-            eq(chapters.parentId, input.parentId),
-          )
-        : and(
-            eq(chapters.documentId, input.documentId),
-            isNull(chapters.parentId),
-          ),
-    )
-    .all();
   const now = new Date().toISOString();
   const id = randomUUID();
   db.transaction((tx) => {
+    const siblingCondition = input.parentId
+      ? and(
+          eq(chapters.documentId, input.documentId),
+          eq(chapters.parentId, input.parentId),
+        )
+      : and(
+          eq(chapters.documentId, input.documentId),
+          isNull(chapters.parentId),
+        );
+    const siblings = tx
+      .select({ id: chapters.id })
+      .from(chapters)
+      .where(siblingCondition)
+      .orderBy(asc(chapters.orderIndex), asc(chapters.createdAt))
+      .all();
+    // Normalize in two passes so a stale/gapped order cannot collide with the
+    // unique sibling index while moving rows into contiguous positions.
+    siblings.forEach((sibling, index) =>
+      tx
+        .update(chapters)
+        .set({ orderIndex: -(index + 1) })
+        .where(eq(chapters.id, sibling.id))
+        .run(),
+    );
+    siblings.forEach((sibling, orderIndex) =>
+      tx
+        .update(chapters)
+        .set({ orderIndex })
+        .where(eq(chapters.id, sibling.id))
+        .run(),
+    );
     tx.insert(chapters)
       .values({
         id,
@@ -208,18 +224,23 @@ export function reorderChapter(id: string, direction: -1 | 1): boolean {
   const target = index + direction;
   if (index < 0 || target < 0 || target >= siblings.length) return false;
   const temporaryIndex = -1;
+  const now = new Date().toISOString();
   db.transaction((tx) => {
     tx.update(chapters)
-      .set({ orderIndex: temporaryIndex })
+      .set({ orderIndex: temporaryIndex, updatedAt: now })
       .where(eq(chapters.id, siblings[index].id))
       .run();
     tx.update(chapters)
-      .set({ orderIndex: siblings[index].orderIndex })
+      .set({ orderIndex: siblings[index].orderIndex, updatedAt: now })
       .where(eq(chapters.id, siblings[target].id))
       .run();
     tx.update(chapters)
-      .set({ orderIndex: siblings[target].orderIndex })
+      .set({ orderIndex: siblings[target].orderIndex, updatedAt: now })
       .where(eq(chapters.id, siblings[index].id))
+      .run();
+    tx.update(documents)
+      .set({ updatedAt: now })
+      .where(eq(documents.id, current.documentId))
       .run();
   });
   return true;

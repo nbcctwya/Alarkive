@@ -1,9 +1,6 @@
 import { ReaderShell } from "@/components/reader/ReaderShell";
 import { notFound } from "next/navigation";
-import {
-  getDocumentById,
-  touchDocumentLastRead,
-} from "@/repositories/documents";
+import { getDocumentById } from "@/repositories/documents";
 import {
   listChapterRecords,
   listChaptersByDocument,
@@ -21,7 +18,6 @@ export default async function ReaderPage({
   const { documentId } = await params;
   const document = getDocumentById(documentId);
   if (!document) notFound();
-  touchDocumentLastRead(documentId);
   const tree = listChaptersByDocument(documentId);
   const records = listChapterRecords(documentId);
   const contents = Object.fromEntries(

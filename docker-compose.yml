@@ -1,0 +1,35 @@
+services:
+  alarkive:
+    build: .
+    restart: unless-stopped
+    environment:
+      ALARKIVE_DATA_DIR: /app/data
+      ALARKIVE_ASSETS_DIR: /app/data/assets
+      ALARKIVE_ADMIN_USERNAME: ${ALARKIVE_ADMIN_USERNAME:-admin}
+      ALARKIVE_ADMIN_PASSWORD: ${ALARKIVE_ADMIN_PASSWORD:?set ALARKIVE_ADMIN_PASSWORD in .env}
+    volumes:
+      - alarkive-data:/app/data
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2.11.4-alpine
+    restart: unless-stopped
+    depends_on:
+      alarkive:
+        condition: service_healthy
+    environment:
+      ALARKIVE_DOMAIN: ${ALARKIVE_DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  alarkive-data:
+  caddy-data:
+  caddy-config:

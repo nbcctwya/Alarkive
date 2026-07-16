@@ -7,8 +7,20 @@ export function listChapterReadingStates(
   documentId: string,
 ): ChapterReadingState[] {
   return db
-    .select()
+    .select({
+      chapterId: readingProgress.chapterId,
+      scrollPosition: readingProgress.scrollPosition,
+      completed: readingProgress.completed,
+      updatedAt: readingProgress.updatedAt,
+    })
     .from(readingProgress)
+    .innerJoin(
+      chapters,
+      and(
+        eq(chapters.id, readingProgress.chapterId),
+        eq(chapters.documentId, readingProgress.documentId),
+      ),
+    )
     .where(eq(readingProgress.documentId, documentId))
     .orderBy(desc(readingProgress.updatedAt))
     .all()
@@ -49,6 +61,14 @@ export function upsertReadingProgress(input: {
   scrollPosition?: number;
   completed?: boolean;
 }): ChapterReadingState {
+  const chapter = db
+    .select({ documentId: chapters.documentId })
+    .from(chapters)
+    .where(eq(chapters.id, input.chapterId))
+    .get();
+  if (!chapter || chapter.documentId !== input.documentId) {
+    throw new Error("章节不存在或不属于当前文档");
+  }
   const existing = db
     .select()
     .from(readingProgress)
@@ -59,7 +79,19 @@ export function upsertReadingProgress(input: {
       ),
     )
     .get();
-  const now = new Date().toISOString();
+  const latest = db
+    .select({ updatedAt: readingProgress.updatedAt })
+    .from(readingProgress)
+    .where(eq(readingProgress.documentId, input.documentId))
+    .orderBy(desc(readingProgress.updatedAt))
+    .get();
+  const latestTimestamp = latest ? Date.parse(latest.updatedAt) : 0;
+  const now = new Date(
+    Math.max(
+      Date.now(),
+      Number.isFinite(latestTimestamp) ? latestTimestamp + 1 : 0,
+    ),
+  ).toISOString();
   const values = {
     documentId: input.documentId,
     chapterId: input.chapterId,

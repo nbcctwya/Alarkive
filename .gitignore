@@ -5,7 +5,8 @@ out/
 *:Zone.Identifier
 *.log
 *.tsbuildinfo
-data/*.db
-data/*.db-*
+data/
+playwright-report/
+test-results/
 .env*
 !.env.example

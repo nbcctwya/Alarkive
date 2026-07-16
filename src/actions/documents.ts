@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import {
   createDocument,
   deleteDocument,
+  touchDocumentLastRead,
   updateDocument,
 } from "@/repositories/documents";
 import type { DocumentSummary } from "@/types";
@@ -24,7 +25,7 @@ export async function createDocumentAction(
 
 export async function updateDocumentAction(
   id: string,
-  input: { title?: string; description?: string },
+  input: { title?: string; description?: string; tags?: string[] },
 ): Promise<ActionResult<DocumentSummary>> {
   try {
     const document = updateDocument(id, input);
@@ -43,5 +44,17 @@ export async function deleteDocumentAction(id: string): Promise<ActionResult> {
     return { ok: true, data: undefined };
   } catch (error) {
     return { ok: false, error: getErrorMessage(error, "删除文档失败") };
+  }
+}
+
+export async function touchDocumentLastReadAction(
+  id: string,
+): Promise<ActionResult> {
+  try {
+    touchDocumentLastRead(id);
+    revalidatePath("/library");
+    return { ok: true, data: undefined };
+  } catch (error) {
+    return { ok: false, error: getErrorMessage(error, "最近阅读时间更新失败") };
   }
 }
