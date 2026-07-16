@@ -121,7 +121,7 @@ npm run test:e2e
    cp .env.example .env
    ```
 
-2. 设置 `ALARKIVE_DOMAIN`、管理员用户名和一个长随机密码。公网域名需提前将 DNS 指向服务器。
+2. 设置 `ALARKIVE_SITE_ADDRESS`、管理员用户名和一个长随机密码。使用域名（例如 `learn.example.com`）时，需提前将 DNS 指向服务器，Caddy 会自动配置 HTTPS。只有公网 IP 时可临时设置为 `http://PUBLIC_IP`，但 Basic Auth 凭据会通过未加密 HTTP 传输，不适合长期公网使用。
 3. 构建并启动：
 
    ```bash
@@ -130,6 +130,8 @@ npm run test:e2e
    ```
 
 Caddy 自动申请/续期 HTTPS 证书并反向代理至 Alarkive。应用容器以非 root 用户运行，启动时自动应用 migration；命名卷 `alarkive-data` 持久化数据库、图片和备份。健康检查地址为 `/api/health`，该接口不要求 Basic Auth，也不返回业务数据。
+
+如果部署主机无法访问 Docker Hub，可在 `.env` 中将 `ALARKIVE_NODE_IMAGE` 和 `ALARKIVE_CADDY_IMAGE` 指向可信的 Docker Official Images 镜像副本。Alpine 官方软件源较慢时，还可通过 `ALARKIVE_ALPINE_MIRROR` 设置受信任的镜像源地址。原生模块无法下载预编译产物时，可通过 `ALARKIVE_NODE_HEADERS_MIRROR` 指定可信的 Node.js 头文件镜像，并回退到可复现的本地编译。
 
 Docker 中创建备份：
 

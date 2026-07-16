@@ -1,17 +1,33 @@
-FROM node:22-alpine AS dependencies
-WORKDIR /app
-RUN apk add --no-cache python3 make g++
-COPY package.json package-lock.json ./
-RUN npm ci
+ARG NODE_IMAGE=node:22-alpine
 
-FROM node:22-alpine AS builder
+FROM ${NODE_IMAGE} AS dependencies
+WORKDIR /app
+ARG ALPINE_MIRROR
+RUN if [ -n "${ALPINE_MIRROR}" ]; then \
+      sed -i "s#https://dl-cdn.alpinelinux.org/alpine#${ALPINE_MIRROR}#g" /etc/apk/repositories; \
+    fi \
+    && apk add --no-cache python3 make g++
+COPY package.json package-lock.json ./
+ARG NODE_HEADERS_MIRROR
+RUN if [ -n "${NODE_HEADERS_MIRROR}" ]; then \
+      node_version="$(node -p 'process.version')"; \
+      mkdir -p /tmp/node-headers; \
+      wget -q "${NODE_HEADERS_MIRROR}/${node_version}/node-${node_version}-headers.tar.gz" -O /tmp/node-headers.tar.gz; \
+      tar -xzf /tmp/node-headers.tar.gz -C /tmp/node-headers --strip-components=1; \
+      npm_config_nodedir=/tmp/node-headers npm_config_build_from_source=true npm ci; \
+      rm -rf /tmp/node-headers /tmp/node-headers.tar.gz; \
+    else \
+      npm ci; \
+    fi
+
+FROM ${NODE_IMAGE} AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-FROM node:22-alpine AS runner
+FROM ${NODE_IMAGE} AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \

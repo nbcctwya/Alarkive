@@ -1,6 +1,11 @@
 services:
   alarkive:
-    build: .
+    build:
+      context: .
+      args:
+        NODE_IMAGE: ${ALARKIVE_NODE_IMAGE:-node:22-alpine}
+        ALPINE_MIRROR: ${ALARKIVE_ALPINE_MIRROR:-}
+        NODE_HEADERS_MIRROR: ${ALARKIVE_NODE_HEADERS_MIRROR:-}
     restart: unless-stopped
     environment:
       ALARKIVE_DATA_DIR: /app/data
@@ -13,13 +18,13 @@ services:
       - "3000"
 
   caddy:
-    image: caddy:2.11.4-alpine
+    image: ${ALARKIVE_CADDY_IMAGE:-caddy:2.11.4-alpine}
     restart: unless-stopped
     depends_on:
       alarkive:
         condition: service_healthy
     environment:
-      ALARKIVE_DOMAIN: ${ALARKIVE_DOMAIN:-localhost}
+      ALARKIVE_SITE_ADDRESS: ${ALARKIVE_SITE_ADDRESS:-http://localhost}
     ports:
       - "80:80"
       - "443:443"

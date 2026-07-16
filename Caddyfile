@@ -1,4 +1,4 @@
-{$ALARKIVE_DOMAIN:localhost} {
+{$ALARKIVE_SITE_ADDRESS:http://localhost} {
 	log {
 		output stdout
 		format console
