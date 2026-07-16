@@ -15,6 +15,7 @@ import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { remarkCallouts } from "@/lib/markdown";
+import { normalizeMarkdownMath } from "@/lib/markdown-math";
 
 function textContent(children: ReactNode): string {
   return Children.toArray(children)
@@ -142,7 +143,7 @@ export function MarkdownRenderer({
         rehypePlugins={[rehypeKatex]}
         components={components}
       >
-        {content}
+        {normalizeMarkdownMath(content)}
       </ReactMarkdown>
     </div>
   );

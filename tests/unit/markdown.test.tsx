@@ -3,6 +3,7 @@ import React from "react";
 import { describe, expect, it } from "vitest";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 import { extractMarkdownHeadings, formatMarkdownSafely } from "@/lib/markdown";
+import { normalizeMarkdownMath } from "@/lib/markdown-math";
 
 describe("Markdown rendering", () => {
   it("renders callouts, formulas, task lists, images and language-labelled code", () => {
@@ -50,6 +51,54 @@ const answer = 42;
       { level: 2, title: "Overview", id: "overview-1" },
       { level: 4, title: "Details", id: "details" },
     ]);
+  });
+
+  it("renders AI-style LaTeX delimiters and copied bracket formula blocks", () => {
+    const html = renderToStaticMarkup(
+      <MarkdownRenderer
+        content={`Inline (\\tau=8) and \\(x^2\\).
+
+[
+x_{u,t}\\in\\mathbb{R}^{F}
+]
+
+[
+(\\text{股票 }u,\\text{时间 }i)
+]
+
+[
+L=\\sum_{u\\in S}(r_u-\\hat r_u)^2
+]
+
+\\[
+X\\overset{\\text{Gate}}{\\longrightarrow}H
+\\]`}
+      />,
+    );
+
+    expect(html.match(/class="katex/g)?.length).toBeGreaterThanOrEqual(6);
+    expect(html).toContain("katex-display");
+    expect(html).not.toContain("katex-error");
+  });
+
+  it("does not reinterpret code, links, task lists or ordinary brackets", () => {
+    const source = `[
+ordinary notes
+]
+
+[documentation](https://example.com)
+
+- [x] task
+
+\`(\\tau)\`
+
+\`\`\`markdown
+[
+x_{u,t}\\in R
+]
+\`\`\``;
+
+    expect(normalizeMarkdownMath(source)).toBe(source);
   });
 });
 

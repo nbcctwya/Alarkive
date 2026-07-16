@@ -43,6 +43,10 @@ test("creates, edits, reads and removes a persistent learning document", async (
 
 - [x] persisted
 
+[
+x_{u,t}\\in\\mathbb{R}^{F}
+]
+
 $$
 E = mc^2
 $$
@@ -70,6 +74,7 @@ ${longBody}`);
   await expect(page.locator(".markdown-callout-tip")).toContainText(
     "Browser verified callout",
   );
+  await expect(page.locator(".katex-display")).toHaveCount(2);
   const image = page.locator(".markdown-body img");
   await expect(image).toBeVisible();
   await expect
