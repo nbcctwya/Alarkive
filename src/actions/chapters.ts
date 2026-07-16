@@ -7,7 +7,7 @@ import {
   reorderChapter,
   updateChapter,
   type ChapterRecord,
-} from "@/repositories/chapters";
+} from "@/server/repositories/chapters";
 import { getErrorMessage, type ActionResult } from "./result";
 
 export async function createChapterAction(input: {

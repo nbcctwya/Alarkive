@@ -6,8 +6,8 @@ import {
   listDocumentAssets,
   storeDocumentImage,
   MAX_IMAGE_BYTES,
-  type DocumentAsset,
-} from "@/services/assets";
+} from "@/server/services/assets";
+import type { DocumentAsset } from "@/types/assets";
 import { getErrorMessage, type ActionResult } from "./result";
 
 export async function listDocumentAssetsAction(

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { upsertReadingProgress } from "@/repositories/reading-progress";
+import { upsertReadingProgress } from "@/server/repositories/reading-progress";
 
 export async function POST(request: Request) {
   try {

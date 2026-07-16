@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import {
   markChapterCompleted,
   upsertReadingProgress,
-} from "@/repositories/reading-progress";
-import type { ChapterReadingState } from "@/types";
+} from "@/server/repositories/reading-progress";
+import type { ChapterReadingState } from "@/types/reading";
 import { getErrorMessage, type ActionResult } from "./result";
 
 export async function saveReadingProgressAction(input: {

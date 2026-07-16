@@ -1,10 +1,10 @@
 import { EditorWorkspace } from "@/components/editor/EditorWorkspace";
 import { notFound } from "next/navigation";
-import { getDocumentById } from "@/repositories/documents";
+import { getDocumentById } from "@/server/repositories/documents";
 import {
   listChapterRecords,
   listChaptersByDocument,
-} from "@/repositories/chapters";
+} from "@/server/repositories/chapters";
 
 export default async function EditorPage({
   params,

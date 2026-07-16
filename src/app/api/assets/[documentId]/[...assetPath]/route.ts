@@ -1,4 +1,4 @@
-import { readDocumentAsset } from "@/services/assets";
+import { readDocumentAsset } from "@/server/services/assets";
 
 export async function GET(
   _request: Request,

@@ -1,4 +1,4 @@
-import { exportDocumentArchive } from "@/services/portability";
+import { exportDocumentArchive } from "@/server/services/portability";
 
 export async function GET(
   _request: Request,

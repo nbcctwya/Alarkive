@@ -3,17 +3,17 @@ import {
   deleteDocument,
   getDocumentById,
   listDocuments,
-} from "../src/repositories/documents";
+} from "../src/server/repositories/documents";
 import {
   createChapter,
   getChapterById,
   updateChapter,
-} from "../src/repositories/chapters";
+} from "../src/server/repositories/chapters";
 import {
   getReadingProgress,
   markChapterCompleted,
   upsertReadingProgress,
-} from "../src/repositories/reading-progress";
+} from "../src/server/repositories/reading-progress";
 
 const markerTitle = "Alarkive persistence verification";
 const markerContent = "# Persistent Markdown\n\nrestart-safe-marker";

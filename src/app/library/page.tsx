@@ -1,5 +1,5 @@
 import { LibraryClient } from "@/components/library/LibraryClient";
-import { listDocuments } from "@/repositories/documents";
+import { listDocuments } from "@/server/repositories/documents";
 
 export default function LibraryPage() {
   try {

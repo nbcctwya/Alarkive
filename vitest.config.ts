@@ -6,7 +6,7 @@ process.env.ALARKIVE_ASSETS_DIR = "./data/assets.test";
 export default defineConfig({
   test: {
     environment: "node",
-    setupFiles: ["./tests/setup.ts"],
+    setupFiles: ["./tests/setup/vitest.ts"],
     exclude: [...configDefaults.exclude, "tests/e2e/**"],
     fileParallelism: false,
     maxWorkers: 1,

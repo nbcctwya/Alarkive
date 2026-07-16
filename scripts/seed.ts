@@ -1,17 +1,17 @@
-import { db } from "../src/db";
+import { db } from "../src/server/db";
 import {
   chapters,
   documents as documentsTable,
   documentTags,
   readingProgress as readingProgressTable,
-} from "../src/db/schema";
+} from "../src/server/db/schema";
 import {
   chapterContents,
   chapterTrees,
   documents,
   readingProgress,
-} from "../src/fixtures/documents";
-import type { ChapterNode } from "../src/types";
+} from "./seed-data/example-course";
+import type { ChapterNode } from "../src/types/chapters";
 
 function flatten(nodes: ChapterNode[]): ChapterNode[] {
   return nodes.flatMap((node) => [node, ...flatten(node.children)]);
@@ -95,4 +95,4 @@ db.transaction((tx) => {
   }
 });
 
-console.log("Fixture seed applied without duplicating existing records.");
+console.log("Example seed applied without duplicating existing records.");

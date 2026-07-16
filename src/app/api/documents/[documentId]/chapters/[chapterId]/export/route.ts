@@ -1,4 +1,4 @@
-import { getChapterById } from "@/repositories/chapters";
+import { getChapterById } from "@/server/repositories/chapters";
 import { safeFileName } from "@/lib/filename";
 
 export async function GET(

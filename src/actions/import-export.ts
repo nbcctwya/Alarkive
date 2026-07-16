@@ -5,10 +5,13 @@ import {
   importDocumentArchive,
   importMarkdown,
   inspectImport,
-  type ImportInspection,
-} from "@/services/portability";
-import type { DocumentSummary } from "@/types";
-import { createChapter, type ChapterRecord } from "@/repositories/chapters";
+} from "@/server/services/portability";
+import type { DocumentSummary } from "@/types/documents";
+import type { ImportInspection } from "@/types/portability";
+import {
+  createChapter,
+  type ChapterRecord,
+} from "@/server/repositories/chapters";
 import { safeFileName } from "@/lib/filename";
 import { getErrorMessage, type ActionResult } from "./result";
 

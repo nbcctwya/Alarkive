@@ -3,11 +3,11 @@
 import { revalidatePath } from "next/cache";
 import {
   createDocument,
-  deleteDocument,
   touchDocumentLastRead,
   updateDocument,
-} from "@/repositories/documents";
-import type { DocumentSummary } from "@/types";
+} from "@/server/repositories/documents";
+import { deleteDocumentWithAssets } from "@/server/services/documents";
+import type { DocumentSummary } from "@/types/documents";
 import { getErrorMessage, type ActionResult } from "./result";
 
 export async function createDocumentAction(
@@ -39,7 +39,8 @@ export async function updateDocumentAction(
 
 export async function deleteDocumentAction(id: string): Promise<ActionResult> {
   try {
-    if (!deleteDocument(id)) return { ok: false, error: "文档不存在或已删除" };
+    if (!deleteDocumentWithAssets(id))
+      return { ok: false, error: "文档不存在或已删除" };
     revalidatePath("/library");
     return { ok: true, data: undefined };
   } catch (error) {

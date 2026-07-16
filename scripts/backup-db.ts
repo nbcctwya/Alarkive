@@ -1,4 +1,4 @@
-import { createDatabaseBackup } from "../src/services/database-backup";
+import { createDatabaseBackup } from "../src/server/services/database-backup";
 
 async function main() {
   const destination = await createDatabaseBackup();

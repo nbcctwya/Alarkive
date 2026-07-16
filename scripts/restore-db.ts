@@ -1,4 +1,4 @@
-import { restoreDatabaseBackup } from "../src/services/database-backup";
+import { restoreDatabaseBackup } from "../src/server/services/database-backup";
 
 const backupPath = process.argv[2];
 if (!backupPath) {
