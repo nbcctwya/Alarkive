@@ -112,6 +112,24 @@ x_{u,t}\\in R
 
     expect(normalizeMarkdownMath(source)).toBe(source);
   });
+
+  it("renders imported bracket formula blocks with CRLF line endings", () => {
+    const content = [
+      "可以将照片亮度粗略理解为：",
+      "",
+      "[",
+      "\\text{照片亮度}",
+      "\\propto",
+      "\\frac{\\text{光圈进光量} \\times \\text{曝光时间} \\times \\text{ISO}}{1}",
+      "]",
+    ].join("\r\n");
+    const normalized = normalizeMarkdownMath(content);
+    const html = renderToStaticMarkup(<MarkdownRenderer content={content} />);
+
+    expect(normalized).toContain("$$\r\n\\text{照片亮度}");
+    expect(html).toContain("katex-display");
+    expect(html).not.toContain("katex-error");
+  });
 });
 
 describe("safe Markdown formatting", () => {

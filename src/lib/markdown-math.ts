@@ -74,7 +74,8 @@ function normalizeProseMath(source: string): string {
  * unchanged.
  */
 export function normalizeMarkdownMath(content: string): string {
-  const lines = content.split("\n");
+  const newline = content.includes("\r\n") ? "\r\n" : "\n";
+  const lines = content.split(/\r?\n/);
   const output: string[] = [];
   let prose: string[] = [];
   let fence: { marker: "`" | "~"; length: number } | null = null;
@@ -111,5 +112,5 @@ export function normalizeMarkdownMath(content: string): string {
     prose.push(line);
   }
   flushProse();
-  return output.join("\n");
+  return output.join(newline);
 }
